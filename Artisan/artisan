@@ -1,0 +1,157 @@
+<?php
+
+require_once __DIR__ . '/writeIn.php';
+require_once __DIR__ . '/actFunction.php';
+require_once __DIR__ . '/route.php';
+require_once __DIR__ . '/output.php';
+require_once __DIR__ . '/processString.php';
+
+global $b_camel_name;
+global $s_camel_name;
+global $snake_name;
+
+$command = $argv[1];
+
+[ 0 => $act, 1 => $object] = explode(':', $command);
+
+/**
+ * Available Cmd:
+ *
+ * make:all [name] -m, --model=[model1,model2,...]  | php artisan make:all Test -m=visit,reach,award
+ * make:model [Model] --name=[name]                 | php artisan make:model TestModel --name=Test
+ * make:controller [Name]                           | php artisan make:controller Test
+ * make:service [Name]                              | php artisan make:service Test
+ * make:repository [Name]                           | php artisan make:repository Test
+ */
+switch ($act) {
+    case 'make':
+        if ($object == 'all') { // ex: make:all ShopMall (--model=award,visit)
+
+            setArg2($argv[2]);
+            
+            if (empty($b_camel_name)) {
+                return argError('name');
+            }
+
+            $mds = setArg3($argv[3]);
+
+            if ($mds == []) {
+                return argError('model');
+            }
+
+            makeController();
+            makeService();
+            makeRepository($mds);
+
+            return;
+        } elseif ($object == 'model') { // ex: make:model Award --name=ShopMall
+
+            $modelName = ucfirst($argv[2]); // ex: Award
+
+            if (empty($modelName)) {
+                return argError('model name');
+            }
+
+            if (empty($argv[3])) {
+                return argError('argv3');
+            }
+
+            setArg3($argv[3]);
+            makeModel($modelName);
+
+            return;
+        } elseif ($object == 'service') { // ex: make:service ShopMall
+
+            setArg2($argv[2]);
+            
+            if (empty($b_camel_name)) {
+                return argError('service name');
+            }
+
+            makeService();
+
+            return;
+        } elseif ($object == 'controller') { // ex: make:controller ShopMall
+            setArg2($argv[2]);
+            
+            if (empty($b_camel_name)) {
+                return argError('controller name');
+            }
+
+            makeController();
+
+            return;
+        } elseif ($object == 'repository') { // ex: make:repository ShopMall --model=visit,reach
+            setArg2($argv[2]);
+            
+            if (empty($b_camel_name)) {
+                return argError('repository name');
+            }
+
+            $mds = setArg3($argv[3]);
+
+            if ($mds == []) {
+                return argError('model');
+            }
+
+            makeRepository($mds);
+
+            return;
+        }
+
+        return cmdError($command);
+    default:
+        return cmdError($command);
+}
+
+return;
+
+
+function setArg2($param)
+{
+    global $b_camel_name;
+    global $s_camel_name;
+    global $snake_name;
+
+    $name = camelize($param);
+    $b_camel_name = ucfirst($name); // Shop
+    $s_camel_name = lcfirst($name); // shopMall
+    $snake_name = decamelize($name); // shop_mall
+}
+
+function setArg3($param)
+{
+    [ 0 => $option, 1 => $params ] = explode('=', $param); // ex: --model=award,visit
+
+    switch ($option) {
+        case '--model':
+        case '-m':
+            if (empty($params)) {
+                return argError('model names');
+            }
+
+            $models = explode(',', $params);
+
+            foreach ($models as $model) {
+                $m = ucfirst($model);
+                $mds[] = $m;
+                makeModel($m);
+            }
+
+            return $mds;
+        case '--name':
+        case '-n':
+            setArg2($params);
+
+            if (empty($params)) {
+                return argError('name');
+            }
+
+            break;
+        default:
+            if (!empty($option)) {
+                return optionError($option);
+            }
+            break;
+    }
+}
